@@ -7,6 +7,8 @@ from canary import canaryInitial
 from canary.canaryInitial import OnboardingTutorial
 from canary.canaryInformatic import CanaryInformatic
 import configparser
+import certifi
+import ssl as ssl_lib
 
 config = configparser.RawConfigParser()
 config.read('config.properties')
@@ -14,8 +16,8 @@ config.read('config.properties')
 pale = config.get('SlackSection', 'SLACK_SIGNING_SECRET')
 app = Flask(__name__)
 slack_events_adapter = SlackEventAdapter(config.get('SlackSection', 'SLACK_SIGNING_SECRET'), "/slack/events", app)
-
-slack_web_client = WebClient(token=config.get('SlackSection', 'SLACK_BOT_TOKEN'))
+ssl_context = ssl_lib.create_default_context(cafile=certifi.where())
+slack_web_client = WebClient(token=config.get('SlackSection', 'SLACK_BOT_TOKEN'), ssl=ssl_context)
 
 onboarding_tutorials_sent = {}
 
