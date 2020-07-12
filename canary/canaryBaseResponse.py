@@ -1,7 +1,4 @@
-from canary.canaryBaseCommandProcessor import BaseCommandProcessor
-
-
-class CanaryInformatic(BaseCommandProcessor):
+class BaseResponse:
     WELCOME_BLOCK = {
         "type": "section",
         "text": {
@@ -11,17 +8,6 @@ class CanaryInformatic(BaseCommandProcessor):
             ),
         },
     }
-    DIVIDER_BLOCK = {"type": "divider"}
-    VERSION_BLOCK = {
-        "type": "section",
-        "text": {
-            "type": "mrkdwn",
-            "text": (
-                "Canary Version: {}".format( "0.0.1.alpha")
-            ),
-        }
-    }
-    data = None
 
     def __init__(self, channel, config):
         self.channel = channel
@@ -30,10 +16,6 @@ class CanaryInformatic(BaseCommandProcessor):
         self.timestamp = ""
         self.reaction_task_completed = False
         self.pin_task_completed = False
-        self.VERSION_BLOCK['text']['text'] = "Canary Version: {}".format(config.get("CanaryVersion", "CANARY_VERSION"))
-
-    def loadData(self, data):
-        self.data = data
 
     def get_message_payload(self):
 
@@ -44,8 +26,6 @@ class CanaryInformatic(BaseCommandProcessor):
             "username": self.username,
             "icon_emoji": self.icon_emoji,
             "blocks": [
-                self.WELCOME_BLOCK,
-                self.DIVIDER_BLOCK,
-                self.VERSION_BLOCK,
+                self.WELCOME_BLOCK
             ],
         }

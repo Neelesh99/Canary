@@ -1,26 +1,27 @@
-import os
 import logging
 from flask import Flask
 from slack import WebClient
 from slackeventsapi import SlackEventAdapter
-from canary import canaryInitial
 from canary.canaryInitial import OnboardingTutorial
-from canary.canaryInformatic import CanaryInformatic
 import configparser
-import certifi
-import ssl as ssl_lib
+from canary.canaryLocalise import CanaryLocalise
+from canary.canaryCommandParser import CommandParser
+import time
+import asyncio
 
 config = configparser.RawConfigParser()
 config.read('config.properties')
 
-pale = config.get('SlackSection', 'SLACK_SIGNING_SECRET')
 app = Flask(__name__)
 slack_events_adapter = SlackEventAdapter(config.get('SlackSection', 'SLACK_SIGNING_SECRET'), "/slack/events", app)
-ssl_context = ssl_lib.create_default_context(cafile=certifi.where())
-slack_web_client = WebClient(token=config.get('SlackSection', 'SLACK_BOT_TOKEN'), ssl=ssl_context)
-
+slack_web_client = WebClient(token=config.get('SlackSection', 'SLACK_BOT_TOKEN'))
+timeoutstring = config.get('SlackSection', 'TIMEOUT')
+timeout = float(timeoutstring)
 onboarding_tutorials_sent = {}
+localise = None
+event_id_queue = []
 
+last_message_time = time.perf_counter() - timeout
 
 def start_onboarding(user_id: str, channel: str):
     # Create a new onboarding tutorial.
@@ -42,8 +43,8 @@ def start_onboarding(user_id: str, channel: str):
         onboarding_tutorials_sent[channel] = {}
     onboarding_tutorials_sent[channel][user_id] = onboarding_tutorial
 
-def get_version(user_id: str, channel: str):
-    canary_informatic = CanaryInformatic(channel)
+def get_localiser(user_id: str, channel: str):
+    canary_informatic = CanaryLocalise(channel, config)
 
     message = canary_informatic.get_message_payload()
 
@@ -54,6 +55,19 @@ def get_version(user_id: str, channel: str):
     if channel not in onboarding_tutorials_sent:
         onboarding_tutorials_sent[channel] = {}
     onboarding_tutorials_sent[channel][user_id] = canary_informatic
+
+async def process_command(user_id: str, channel: str, text: str, event_id):
+    if event_id in event_id_queue:
+        return
+    else:
+        canary_command = text.startswith('Canary:')
+        if canary_command:
+            cmd = CommandParser(user_id, channel, config)
+            event_id_queue.append(event_id)
+            message = cmd.parseMessage(text)
+            response = slack_web_client.chat_postMessage(**message)
+        else:
+            return
 
 # ================ Team Join Event =============== #
 # When the user first joins a team, the type of the event will be 'team_join'.
@@ -147,17 +161,20 @@ def message(payload):
     that contains "start".
     """
     event = payload.get("event", {})
-
+    event_id = event.get("client_msg_id")
     channel_id = event.get("channel")
     user_id = event.get("user")
     text = event.get("text")
 
 
-    if text and text.lower() == "start":
-        return start_onboarding(user_id, channel_id)
-
-    if text and text.lower() == "canary version":
-        return get_version(user_id, channel_id)
+    # if text and text.lower() == "start":
+    #     return start_onboarding(user_id, channel_id)
+    #
+    # if text and text.lower() == "canary version":
+    #     return get_version(user_id, channel_id)
+    #get_version(user_id, channel_id)
+    if str(text).find("content") == -1 and event_id is not None:
+        asyncio.run(process_command(user_id, channel_id, text, event_id))
 
 
 if __name__ == "__main__":
