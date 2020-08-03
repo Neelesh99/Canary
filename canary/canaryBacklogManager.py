@@ -2,6 +2,9 @@ from canary.canaryBaseCommandProcessor import BaseCommandProcessor
 import requests
 import json
 
+from canary.userManagement import UserManager
+
+
 class BacklogGetSingleManager(BaseCommandProcessor):
     WELCOME_BLOCK = {
         "type": "section",
@@ -38,8 +41,14 @@ class BacklogGetSingleManager(BaseCommandProcessor):
         sheetBackend = GoogleSheetsLink(self.config)
         self.data = sheetBackend.getIssue(data)
 
-    def get_message_payload(self):
+    def loadDataUser(self, userId, data):
+        self.issueID = data
+        sheetBackend = GoogleSheetsLink(self.config)
+        self.data = sheetBackend.getIssueUser(userId, data, self.channel)
 
+    def get_message_payload(self):
+        if self.data is None:
+            return self.get_error_block()
         return {
             "ts": self.timestamp,
             "channel": self.channel,
@@ -49,6 +58,19 @@ class BacklogGetSingleManager(BaseCommandProcessor):
                 self.WELCOME_BLOCK,
                 self.DIVIDER_BLOCK,
                 self._get_issue_structure(self.data)
+            ],
+        }
+
+    def get_error_block(self):
+        return {
+            "ts": self.timestamp,
+            "channel": self.channel,
+            "username": self.username,
+            "icon_emoji": self.icon_emoji,
+            "blocks": [
+                self.WELCOME_BLOCK,
+                self.DIVIDER_BLOCK,
+                {"type": "section", "text": {"type": "mrkdwn", "text": "User not recognised, please run register_me, use Canary: help for more details"}}
             ],
         }
 
@@ -70,7 +92,19 @@ class GoogleSheetsLink:
     def __init__(self, config):
         self.config = config
 
+    def getIssueUser(self, user_id, issue_id, channel):
+        user_manager = UserManager()
+        user = user_manager.getUserChannel(user_id, channel)
+        if user:
+            queryDat = self.conditionLink(user_manager.getGoogleFilesLink()) + "?type=single_get" + "&issueID=" + issue_id
+            r = requests.get(queryDat)
+            return r.text
+        return None
+
     def getIssue(self, issueID):
         queryDat = self.config.get('GoogleSheets', 'BACKLOG_LINK') + "?type=single_get" + "&issueID=" + issueID
         r = requests.get(queryDat)
         return r.text
+
+    def conditionLink(self, text):
+        return text[:-1]

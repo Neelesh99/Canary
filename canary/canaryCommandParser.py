@@ -3,6 +3,9 @@ from canary.canaryBacklogManager import BacklogGetSingleManager
 from canary.canaryBackLogInsertManager import BacklogInsertManager
 from canary.canaryBacklogStatusChangeManager import BacklogStatusChangeManager
 from canary.canaryBacklogGetAllManager import BacklogGetAllManager
+from canary.userManagement import UserManager
+
+
 class CommandParser:
 
     user_id = None
@@ -38,7 +41,9 @@ class CommandParser:
                 "Canary: version\n"
                 "Canary: create_issue description,priority\n"
                 "Canary: change_status issue_id,new_status\n"
-                "Canary: get_all"
+                "Canary: get_all\n"
+                "Canary: register_me google_sheets_link\n"
+                "Canary: add_email email"
             ),
         },
     }
@@ -80,20 +85,30 @@ class CommandParser:
             return None
         elif keyword == "find_issue" and (data is not None):
             backlog = BacklogGetSingleManager(self.channel, self.config)
-            backlog.loadData(data)
+            backlog.loadDataUser(self.user_id, data)
             return backlog
         elif keyword == "create_issue" and (data is not None):
             backlog = BacklogInsertManager(self.channel, self.config)
-            backlog.loadData(data)
+            backlog.loadDataUser(self.user_id, data)
             return backlog
         elif keyword == "change_status" and (data is not None):
             backlog = BacklogStatusChangeManager(self.channel, self.config)
-            backlog.loadData(data)
+            backlog.loadDataUser(self.user_id, data)
             return backlog
         elif keyword == "get_all" and (data is None):
             backlog = BacklogGetAllManager(self.channel, self.config)
-            backlog.loadData(data)
+            backlog.loadDataUser(self.user_id, data)
             return backlog
+        elif keyword == "register_me" and (data is not None):
+            userRegister = UserManager()
+            userRegister.addUser(self.user_id, data, self.channel)
+            userRegister.registerUser()
+            return userRegister
+        elif keyword == "add_email" and (data is not None):
+            userRegister = UserManager()
+            userRegister.channel = self.channel
+            userRegister.add_email(self.user_id, data)
+            return userRegister
         else:
             return None
 

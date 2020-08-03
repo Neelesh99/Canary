@@ -2,6 +2,8 @@ import logging
 from flask import Flask
 from slack import WebClient
 from slackeventsapi import SlackEventAdapter
+
+from canary.BuildUserView import BuildUserView
 from canary.canaryInitial import OnboardingTutorial
 import configparser
 from canary.canaryLocalise import CanaryLocalise
@@ -22,6 +24,13 @@ localise = None
 event_id_queue = []
 
 last_message_time = time.perf_counter() - timeout
+
+
+async def create_home(user_id):
+    homeBuilder = BuildUserView(user_id)
+    homeView = homeBuilder.getHomeView()
+    res = slack_web_client.views_publish(**homeView)
+    return
 
 def start_onboarding(user_id: str, channel: str):
     # Create a new onboarding tutorial.
@@ -175,6 +184,12 @@ def message(payload):
     #get_version(user_id, channel_id)
     if str(text).find("content") == -1 and event_id is not None:
         asyncio.run(process_command(user_id, channel_id, text, event_id))
+
+
+@slack_events_adapter.on("app_home_opened")
+def home(payload):
+    event = payload.get("event", {})
+    asyncio.run(create_home(event.get("user")))
 
 
 if __name__ == "__main__":

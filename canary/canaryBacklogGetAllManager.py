@@ -2,6 +2,9 @@ from canary.canaryBaseCommandProcessor import BaseCommandProcessor
 import requests
 import json
 
+from canary.userManagement import UserManager
+
+
 class BacklogGetAllManager(BaseCommandProcessor):
     WELCOME_BLOCK = {
         "type": "section",
@@ -38,7 +41,13 @@ class BacklogGetAllManager(BaseCommandProcessor):
         sheetsLink = GoogleSheetsLink(self.config)
         self.data = sheetsLink.getIssue()
 
+    def loadDataUser(self, user_id, data):
+        sheetsLink = GoogleSheetsLink(self.config)
+        self.data = sheetsLink.getIssueUser(user_id, self.channel)
+
     def get_message_payload(self):
+        if self.data is None:
+            return self.get_error_block()
         BasicList = [self.WELCOME_BLOCK, self.DIVIDER_BLOCK]
         return {
             "ts": self.timestamp,
@@ -48,6 +57,19 @@ class BacklogGetAllManager(BaseCommandProcessor):
             "blocks":
                 self._get_issue_structure(self.data, BasicList)
             ,
+        }
+
+    def get_error_block(self):
+        return {
+            "ts": self.timestamp,
+            "channel": self.channel,
+            "username": self.username,
+            "icon_emoji": self.icon_emoji,
+            "blocks": [
+                self.WELCOME_BLOCK,
+                self.DIVIDER_BLOCK,
+                {"type": "section", "text": {"type": "mrkdwn", "text": "User not recognised, please run register_me, use Canary: help for more details"}}
+            ],
         }
 
     @staticmethod
@@ -70,7 +92,19 @@ class GoogleSheetsLink:
     def __init__(self, config):
         self.config = config
 
+    def getIssueUser(self, userId, channel):
+        user_manager = UserManager()
+        user = user_manager.getUserChannel(userId, channel)
+        if user:
+            queryDat = self.conditionLink(user_manager.getGoogleFilesLink()) + "?type=get_all_live"
+            r = requests.get(queryDat)
+            return r.text
+        return None
+
     def getIssue(self):
         queryDat = self.config.get('GoogleSheets', 'BACKLOG_LINK') + "?type=get_all_live"
         r = requests.get(queryDat)
         return r.text
+
+    def conditionLink(self, text):
+        return text[:-1]

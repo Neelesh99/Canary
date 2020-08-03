@@ -7,3 +7,5 @@ class BaseCommandProcessor:
 
     def get_message_payload(self):
         return None
+
+

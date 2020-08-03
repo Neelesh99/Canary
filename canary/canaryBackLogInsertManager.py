@@ -1,4 +1,5 @@
 from canary.canaryBaseCommandProcessor import BaseCommandProcessor
+from canary.userManagement import UserManager
 import requests
 import json
 
@@ -37,8 +38,14 @@ class BacklogInsertManager(BaseCommandProcessor):
         sheetBackend = GoogleSheetsLink(self.config)
         self.data = sheetBackend.postIssue(data)
 
-    def get_message_payload(self):
+    def loadDataUser(self, user, data):
+        sheetBackend = GoogleSheetsLink(self.config)
+        self.data = sheetBackend.postIssueUser(data, user, self.channel)
 
+
+    def get_message_payload(self):
+        if self.data is None:
+            return self.get_error_block()
         return {
             "ts": self.timestamp,
             "channel": self.channel,
@@ -48,6 +55,19 @@ class BacklogInsertManager(BaseCommandProcessor):
                 self.WELCOME_BLOCK,
                 self.DIVIDER_BLOCK,
                 self._get_issue_structure(self.data)
+            ],
+        }
+
+    def get_error_block(self):
+        return {
+            "ts": self.timestamp,
+            "channel": self.channel,
+            "username": self.username,
+            "icon_emoji": self.icon_emoji,
+            "blocks": [
+                self.WELCOME_BLOCK,
+                self.DIVIDER_BLOCK,
+                {"type": "section", "text": {"type": "mrkdwn", "text": "User not recognised, please run register_me, use Canary: help for more details"}}
             ],
         }
 
@@ -71,8 +91,23 @@ class GoogleSheetsLink:
     def __init__(self, config):
         self.config = config
 
+    def postIssueUser(self, details, user_id, channel):
+        user_manager = UserManager()
+        user = user_manager.getUserChannel(user_id, channel)
+        if user:
+            email = user_manager.get_email(user_id)
+            email = email[:-1]
+            queryDat = self.conditionLink(user_manager.getGoogleFilesLink()) + "?type=new_issue" + '&email=' + email
+            postData = details
+            r = requests.post(queryDat, postData)
+            return r.text
+        return None
+
     def postIssue(self, details):
         queryDat = self.config.get('GoogleSheets', 'BACKLOG_LINK') + "?type=new_issue"
         postData = details
         r = requests.post(queryDat, postData)
         return r.text
+
+    def conditionLink(self, text):
+        return text[:-1]
